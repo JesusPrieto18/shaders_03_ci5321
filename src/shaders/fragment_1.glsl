@@ -1,25 +1,53 @@
 precision highp float;
 
-uniform vec3 uColor;
-in float vLife; // Recibimos la vida desde el Vertex
+uniform vec3 uLightPos;
+uniform vec3 uViewPos;   // Posición de la cámara
+uniform vec3 uLightColor;
+uniform vec3 uObjectColor; // El color base del material
+uniform vec3 uSpecularColor; // NUEVO: El color específico del brillo
+uniform float uShininess;  // Qué tan pulido es el objeto (ej. 32.0)
 
-out vec4 FragColor;
+in vec3 vNormal;
+in vec3 vFragPos;
+
+out vec4 fragColor;
+
+//in vec3 vColor;
+
+//out vec4 fragColor; // Necesario porque en RawShader no existe gl_FragColor automático en GLSL3
 
 void main() {
-    // gl_PointCoord es una variable nativa mágica de los sistemas de partículas.
-    // Nos da las coordenadas 2D (0 a 1) DENTRO del cuadrito de la partícula actual.
-    vec2 uv = gl_PointCoord - vec2(0.5); // Centramos las coordenadas en (0,0)
+    // 0. Preparativos: Asegurarnos de que todos los vectores tengan longitud exacta de 1.0
+    vec3 N = normalize(vNormal);
     
-    // Calculamos la distancia desde el centro del cuadrito
-    float dist = length(uv);
-
-    // Si la distancia es mayor a 0.5 (es decir, las esquinas del cuadrado), no dibujamos nada.
-    if(dist > 0.5) {
-        discard;
+    if (!gl_FrontFacing) {
+        N = N * -1.0;
     }
+    
+    // El vector de luz es: (Posición Luz - Posición Píxel)
+    vec3 L = normalize(uLightPos - vFragPos);
+    // El vector de vista es: (Posición Cámara - Posición Píxel)
+    vec3 V = normalize(uViewPos - vFragPos);
+    
+    // 1. LUZ AMBIENTE (Luz indirecta constante)
+    float ambientStrength = 0.1; // 10% de luz siempre
+    vec3 ambient = ambientStrength * uLightColor;
 
-    // Creamos un borde suave y difuminado (glow) en lugar de un círculo sólido duro
-    float alpha = smoothstep(0.5, 0.1, dist) * vLife;
+    // 2. LUZ DIFUSA (Ley de Lambert)
+    // Producto punto entre Normal y Vector de Luz (max evita valores negativos)
+    float diff = max(dot(N, L), 0.0);
+    vec3 diffuse = diff * uLightColor;
 
-    FragColor = vec4(uColor, alpha);
+    // 3. LUZ ESPECULAR (Blinn-Phong)
+    // Calculamos el vector intermedio H (sumar y normalizar)
+    vec3 H = normalize(L + V);
+    // Calculamos el alineamiento de H con la Normal, y lo elevamos a la potencia Shininess
+    float spec = pow(max(dot(N, H), 0.0), uShininess);
+    vec3 specular = spec * uSpecularColor; // La luz especular toma el color del objeto
+
+    // RESULTADO FINAL: Sumamos las 3 luces y multiplicamos por el color del objeto
+    vec3 finalLight = (ambient + diffuse + specular);
+    vec3 result = finalLight * uObjectColor;
+
+    fragColor = vec4(result, 1.0);
 }
