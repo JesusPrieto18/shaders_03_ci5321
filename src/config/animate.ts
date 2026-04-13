@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { scene, camera, renderer, controls} from './config';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { scene, camera, renderer, controls, composer} from './config';
 
 export function animate(time: number) {
     
@@ -23,8 +24,26 @@ export function animate(time: number) {
             }
         }
     });
+    
+    const timeSegundos = time * 0.001;
 
-    renderer.render(scene, camera);
+    composer.passes.forEach(pass => {
+        // Comprobamos explícitamente que sea un ShaderPass
+        if (pass.enabled && pass instanceof ShaderPass) {
+            
+            // Le decimos a TypeScript que el material es un RawShaderMaterial
+            const mat = pass.material as THREE.RawShaderMaterial;
+            
+            // Ahora TypeScript sabe perfectamente que 'uniforms' existe
+            if (mat && mat.uniforms && mat.uniforms.uTime) {
+                mat.uniforms.uTime.value = timeSegundos;
+            }
+        }
+    });
+    
+    composer.render();
+
+    //renderer.render(scene, camera);
     requestAnimationFrame(animate);
 
 }

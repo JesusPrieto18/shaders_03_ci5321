@@ -2,11 +2,13 @@ import "./style.css";
 import { config, scene } from './config/config';
 import { animate } from './config/animate';
 import { controls } from './config/controls';
-import { TornadoParticles } from './primitives/geometry';
+import { BasicShapeGenerator } from './primitives/geometry';
+import { createNightVisionEffect } from "./primitives/effects";
 
 const main = () => {
     config();
-    TornadoParticles('Tornado');
+    BasicShapeGenerator('Forma Dinámica');
+    createNightVisionEffect("Night Vision");
     controls();
     animate(0);
 };

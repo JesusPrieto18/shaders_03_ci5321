@@ -1,10 +1,16 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
+// POST-PROCESAMIENTO ---
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+
+
 export let scene: THREE.Scene;
 export let camera: THREE.PerspectiveCamera;
 export let renderer: THREE.WebGLRenderer;
 export let controls: OrbitControls;
+export let composer: EffectComposer;
 
 export function config() {
     scene = new THREE.Scene();
@@ -32,8 +38,9 @@ export function config() {
     controls.dampingFactor = 0.05; 
     controls.minDistance = 2;
     controls.maxDistance = 50;
+    
+    composer = new EffectComposer(renderer);
 
-    //const luz = new THREE.DirectionalLight(0xffffff, 1);
-    //luz.position.set(2, 2, 5);
-    //scene.add(luz, new THREE.AmbientLight(0xffffff, 0.2));
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
 }

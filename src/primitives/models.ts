@@ -1,15 +1,16 @@
-export type AllModels = Tornado;
+export type AllModels = NightVision | BasicShape;
 export type ColorHex = string;
 
-export interface Tornado {
-    type: 'tornado';
+export interface NightVision {
+    type: 'nightVision';
+    enabled: boolean;
+    noise: number;
+    contrast: number;
+}
+
+export interface BasicShape {
+    type: 'basicShape';
     scale: number;
     colorObject: ColorHex;
-    size: number;    // Tamaño de la partícula
-    speed: number;   // Qué tan rápido gira
-    upSpeed: number; // Qué tan rápido sube
-    
-    radiusBottom: number;
-    radiusTop: number;
-    turbulence: number;
+    shape: string; 
 }

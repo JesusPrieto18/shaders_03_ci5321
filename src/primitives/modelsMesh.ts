@@ -1,10 +1,19 @@
 import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { scene } from '../config/config';
-import {AllModels, ColorHex, Tornado} from './models';
+import {AllModels, ColorHex, BasicShape, NightVision} from './models';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { composer } from '../config/config';
 
 const gui = new GUI();
 gui.title('Controles del Modelo');
+
+
+export const effects: EffectPassModel<any>[] = [];
+const carpetaEfectos = gui.addFolder('Post-Procesamiento');
+const estadoEfectos = { activo: 'Ninguno' };
+
+
 
 export const models: ModelsMesh<AllModels>[] = [];
 export let indiceActivo = 0;
@@ -65,125 +74,123 @@ export class ModelsMesh<T extends AllModels> {
 
 }
 
-export class TornadoModel extends ModelsMesh<Tornado> {
-  constructor(name: string, geometry: THREE.BufferGeometry | THREE.Group, shader: THREE.RawShaderMaterial, params: Tornado) {
+export class BasicShapeModel extends ModelsMesh<BasicShape> {
+  constructor(name: string, geometry: THREE.BufferGeometry | THREE.Group | THREE.Points, shader: THREE.RawShaderMaterial, params: BasicShape) {
     super(name, geometry, shader, params);
-    this.mesh.name = "tornado"
+    this.mesh.name = "basicShape";
     this.buildGUI();
-  }
-  protected buildGUI(): void {
-
-    this.fileGUI.addColor(this.parameters, 'colorObject').name("Color").onChange((nuevoHex: ColorHex) => {
-      this.shader.uniforms.uColor.value.set(nuevoHex);
-    });
-
-    this.fileGUI.add(this.parameters, 'scale', 0.1, 5.0).name('Escala Global').onChange((v: number) => {
-      // scale.set(x, y, z) escala uniformemente en todos los ejes
-      this.mesh.scale.set(v, v, v);
-    });
-
-    this.fileGUI.add(this.parameters, 'size', 0.1, 5.0).name('Tamaño de Partícula').onChange((v: number) => {
-        this.shader.uniforms.uSize.value = v; // ¡Actualizamos la GPU!
-    });
-
-    this.fileGUI.add(this.parameters, 'speed', 0.1, 10.0).name('Velocidad de Giro').onChange((v: number) => {
-        this.shader.uniforms.uSpeed.value = v; // ¡Actualizamos la GPU!
-    });
-
-    this.fileGUI.add(this.parameters, 'upSpeed', 0.1, 10.0).name('Velocidad de Ascenso').onChange((v: number) => {
-        this.shader.uniforms.uUpSpeed.value = v; // ¡Actualizamos la GPU!
-    });
-
-    const carpetaForma = this.fileGUI.addFolder('Forma del Tornado');
-    carpetaForma.add(this.parameters, 'radiusBottom', 0.0, 5.0).name('Radio Inferior').onChange((v: number) => {
-        this.shader.uniforms.uRadiusBottom.value = v;
-    });
-    carpetaForma.add(this.parameters, 'radiusTop', 1.0, 15.0).name('Radio Superior').onChange((v: number) => {
-        this.shader.uniforms.uRadiusTop.value = v;
-    });
-    carpetaForma.add(this.parameters, 'turbulence', 0.0, 5.0).name('Turbulencia (Caos)').onChange((v: number) => {
-        this.shader.uniforms.uTurbulence.value = v;
-    });
-
-    console.log('Construyendo modelo tipo tornado');
-  }
-}
-
-/** 
-export class ShockToonModel extends ModelsMesh<ShockToon> {
-  constructor(name: string, geometry: THREE.BufferGeometry | THREE.Group, shader: THREE.RawShaderMaterial, params: ShockToon) {
-    super(name, geometry, shader, params);
-    this.mesh.name = "shocktoon"
-    this.buildGUI();
-
   }
 
   protected buildGUI(): void {
-
+    // 1. Control de Color
     this.fileGUI.addColor(this.parameters, 'colorObject').name("Color").onChange((nuevoHex: ColorHex) => {
+      // Ajusta 'uObjectColor' o 'uColor' dependiendo de cómo lo llames en tu RawShaderMaterial
       this.shader.uniforms.uObjectColor.value.set(nuevoHex);
     });
 
-    this.fileGUI.add(this.parameters, 'scale', 0.1, 5.0).name('Escala Global').onChange((v: number) => {
-      // scale.set(x, y, z) escala uniformemente en todos los ejes
+    // 2. Control de Tamaño
+    this.fileGUI.add(this.parameters, 'scale', 0.1, 5.0).name('Tamaño').onChange((v: number) => {
       this.mesh.scale.set(v, v, v);
     });
 
-    this.fileGUI.add(this.parameters, 'velocity', 0.1, 10.0).name('Velocidad').onChange((v: number) => {
-        this.shader.uniforms.uVelocity.value = v; // ¡Actualizamos la GPU!
-    });
-
-    this.fileGUI.add(this.parameters, 'frequency', 0.1, 20.0).name('Frecuencia').onChange((v: number) => {
-        this.shader.uniforms.uFrequency.value = v; // ¡Actualizamos la GPU!
-    });
-    this.fileGUI.add(this.parameters, 'amplitude', 0.1, 5.0).name('Amplitud').onChange((v: number) => {
-        this.shader.uniforms.uAmplitude.value = v; // ¡Actualizamos la GPU!
-    });
-
-    this.fileGUI.add(this.parameters, 'shininess', 1, 256).name('Shininess').onChange((v: number) => {
-        this.shader.uniforms.uShininess.value = v; // ¡Actualizamos la GPU!
-    });
-
-    const carpetaLuz = this.fileGUI.addFolder('Posición de la Luz');
-    carpetaLuz.add(this.parameters, 'luzX', -10, 10, 1).onChange((v: number) => this.shader.uniforms.uLightPos.value.x = v);
-    carpetaLuz.add(this.parameters, 'luzY', -10, 10, 1).onChange((v: number) => this.shader.uniforms.uLightPos.value.y = v);
-    carpetaLuz.add(this.parameters, 'luzZ', -10, 10, 1).onChange((v: number) => this.shader.uniforms.uLightPos.value.z = v);
+    // 3. ¡EL DROPDOWN DE FORMAS!
+    const formas = ['Cubo', 'Esfera', 'Pirámide', 'Cilindro', 'Toroide'];
     
-    const carpetaLuzColor = this.fileGUI.addFolder('Color de la Luz');
-    carpetaLuzColor.addColor({ color: '#ffffff' }, 'color').name('Color de la Luz').onChange((nuevoHex: ColorHex) => {
-        this.shader.uniforms.uLightColor.value.set(nuevoHex);
-    });
+    this.fileGUI.add(this.parameters, 'shape', formas).name('Forma geométrica').onChange((nuevaForma: string) => {
+      
+      // Eliminar la geometría antigua de la tarjeta gráfica
+      if ((this.mesh as THREE.Mesh).geometry) {
+          (this.mesh as THREE.Mesh).geometry.dispose();
+      }
+      
+      // Asignar la nueva geometría basada en la selección
+      let nuevaGeometria: THREE.BufferGeometry;
 
-    carpetaLuzColor.addColor({ color: '#ffffff' }, 'color').name('Color del Especular').onChange((nuevoHex: ColorHex) => {
-        this.shader.uniforms.uSpecularColor.value.set(nuevoHex);
-    });
+      switch(nuevaForma) {
+        case 'Cubo':
+            nuevaGeometria = new THREE.BoxGeometry(2, 2, 2);
+            break;
+        case 'Esfera':
+            nuevaGeometria = new THREE.SphereGeometry(1.5, 32, 32);
+            break;
+        case 'Pirámide':
+            nuevaGeometria = new THREE.ConeGeometry(1.5, 2, 4);
+            break;
+        case 'Cilindro':
+            nuevaGeometria = new THREE.CylinderGeometry(1, 1, 2, 32);
+            break;
+        case 'Toroide': // La Dona
+            nuevaGeometria = new THREE.TorusGeometry(1, 0.4, 16, 50);
+            break;
+        default:
+            nuevaGeometria = new THREE.BoxGeometry(2, 2, 2);
+      }
 
-    const carpetaBordes = this.fileGUI.addFolder('Radios de los circulos');
-    carpetaBordes.add(this.parameters, 'stepHigh', 0, 1).onChange((v: number) => this.shader.uniforms.uStepHigh.value = v);
-    carpetaBordes.add(this.parameters, 'stepMid', 0, 1).onChange((v: number) => this.shader.uniforms.uStepMid.value = v);
-    //carpetaBordes.add(this.parameters, 'stepLow', 0, 1).onChange((v: number) => this.shader.uniforms.uStepLow.value = v);
-    
-    carpetaBordes.add(this.parameters, 'softness', 0, 0.1).onChange((v: number) => this.shader.uniforms.uSoftness.value = v);
-
-    const carpetaColores = this.fileGUI.addFolder('Colores de las bandas');
-    carpetaColores.addColor(this.parameters, 'colorHigh').name('Color Alto').onChange((nuevoHex: ColorHex) => {
-        this.shader.uniforms.uColorHigh.value.set(nuevoHex);
+      // Inyectar la nueva geometría al Mesh
+      (this.mesh as THREE.Mesh).geometry = nuevaGeometria;
     });
-    carpetaColores.addColor(this.parameters, 'colorMid').name('Color Medio').onChange((nuevoHex: ColorHex) => {
-        this.shader.uniforms.uColorMid.value.set(nuevoHex);
-    });
-
-    const carpetaOutline = this.fileGUI.addFolder('Contorno');
-    carpetaOutline.add(this.parameters, 'outlineThickness', 0.1, 0.5).name('Grosor del Contorno').onChange((v: number) => {
-        this.shader.uniforms.uOutlineThickness.value = v;
-    });
-    carpetaOutline.addColor(this.parameters, 'outlineColor').name('Color del Contorno').onChange((nuevoHex: ColorHex) => {
-        this.shader.uniforms.uOutlineColor.value.set(nuevoHex);
-    });
-    console.log('Construyendo modelo tipo shockwave');
   }
-}*/
+}
 
+export class EffectPassModel<T extends AllModels> {
+  protected name: string;
+  protected pass: ShaderPass;
+  protected parameters: T;
+  protected fileGUI: GUI;
+
+  constructor(name: string, pass: ShaderPass, parameters: T) {
+    this.name = name;
+    this.pass = pass;
+    this.parameters = parameters;
+    
+    // Añadimos la carpeta a tu GUI global
+    this.fileGUI = carpetaEfectos.addFolder(`Ajustes: ${this.name}`);
+  }
+
+  public getNombre(): string { return this.name; }
+
+  public add() {
+    composer.addPass(this.pass);
+  }
+
+  public show() {
+    this.pass.enabled = true; // Enciende el shader
+    this.fileGUI.show();      // Muestra los controles
+  }
+
+  public hide() {
+    this.pass.enabled = false; // Apaga el shader
+    this.fileGUI.hide();       // Oculta los controles
+  }
+
+  protected buildGUI(): void {
+    console.warn(`buildGUI no implementado para el efecto ${this.name}`);
+  }
+}
+
+export class NightVisionModel extends EffectPassModel<NightVision> {
+  constructor(name: string, pass: ShaderPass, params: NightVision) {
+    super(name, pass, params);
+    this.buildGUI();
+  }
+
+  protected buildGUI(): void {
+    this.fileGUI.add(this.parameters, 'enabled').name('Activar Efecto').onChange((v: boolean) => {
+      this.pass.enabled = v;
+    });
+
+    this.fileGUI.add(this.parameters, 'noise', 0.0, 0.5).name('Intensidad Grano').onChange((v: number) => {
+      // Forzamos el tipo porque sabemos que inyectamos un RawShaderMaterial
+      const mat = this.pass.material as THREE.RawShaderMaterial;
+      mat.uniforms.uNoiseIntensity.value = v;
+    });
+
+    this.fileGUI.add(this.parameters, 'contrast', 0.5, 3.0).name('Contraste').onChange((v: number) => {
+      const mat = this.pass.material as THREE.RawShaderMaterial;
+      mat.uniforms.uContrast.value = v;
+    });
+  }
+}
 export function changeModel(nuevoIndice: number) {
   if (nuevoIndice === indiceActivo) {
     console.log(`Ya estás viendo el modelo "${models[indiceActivo].getNombre()}". No se realizará ningún cambio.`);
@@ -203,11 +210,27 @@ export function changeModel(nuevoIndice: number) {
   }
 }
 
-export function addModel(nombre: string, geometria: THREE.BufferGeometry  | THREE.Group, shader: THREE.RawShaderMaterial, parametros: AllModels) {
-  let model: ModelsMesh<any>;  
+let selectorEfecto = carpetaEfectos.add(estadoEfectos, 'activo', ['Ninguno'])
+    .name('Efecto Actual')
+    .onChange((nombre: string) => changeEffect(nombre));
 
-  if (parametros.type === 'tornado') {
-    model = new TornadoModel(nombre, geometria, shader, parametros);
+export function changeEffect(nombreEfecto: string) {
+    // 1. Ocultamos y apagamos TODOS los efectos
+    effects.forEach(efecto => efecto.hide());
+    
+    // 2. Si eligió uno válido, lo encendemos y mostramos sus parámetros
+    if (nombreEfecto !== 'Ninguno') {
+        const efectoSeleccionado = effects.find(e => e.getNombre() === nombreEfecto);
+        if (efectoSeleccionado) {
+            efectoSeleccionado.show();
+        }
+    }
+}
+export function addModel(nombre: string, geometria: THREE.BufferGeometry | THREE.Group, shader: THREE.RawShaderMaterial, parametros: AllModels) {
+  let model: ModelsMesh<any>; 
+   
+  if (parametros.type === 'basicShape') {
+    model = new BasicShapeModel(nombre, geometria, shader, parametros);
   } else {
     throw new Error("Tipo de modelo no soportado");
   }
@@ -222,4 +245,24 @@ export function addModel(nombre: string, geometria: THREE.BufferGeometry  | THRE
       // Si no, lo ocultamos hasta que el usuario lo seleccione
       model.hide();
   }
+}
+
+export function addEffect(efecto: EffectPassModel<any>) {
+    // 1. Añadimos el efecto a la lógica y lo apagamos por defecto
+    efecto.add(); 
+    effects.push(efecto);
+    efecto.hide(); 
+
+    // 2. Forzamos el estado de nuestro objeto a 'Ninguno'
+    estadoEfectos.activo = 'Ninguno';
+
+    // 3. Destruimos el selector desactualizado de la GUI
+    selectorEfecto.destroy(); 
+    
+    // 4. Creamos el nuevo selector con la lista actualizada
+    const opciones = ['Ninguno', ...effects.map(e => e.getNombre())];
+    
+    selectorEfecto = carpetaEfectos.add(estadoEfectos, 'activo', opciones)
+        .name('Efecto Actual')
+        .onChange((nombre: string) => changeEffect(nombre));
 }
