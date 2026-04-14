@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { scene } from '../config/config';
-import {AllModels, ColorHex, BasicShape, NightVision} from './models';
+import {AllModels, ColorHex, BasicShape, NightVision, VHSEffect} from './models';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { composer } from '../config/config';
 
@@ -188,6 +188,34 @@ export class NightVisionModel extends EffectPassModel<NightVision> {
     this.fileGUI.add(this.parameters, 'contrast', 0.5, 3.0).name('Contraste').onChange((v: number) => {
       const mat = this.pass.material as THREE.RawShaderMaterial;
       mat.uniforms.uContrast.value = v;
+    });
+  }
+}
+
+export class VHSModel extends EffectPassModel<VHSEffect> {
+  constructor(name: string, pass: ShaderPass, params: VHSEffect) {
+    super(name, pass, params);
+    this.buildGUI();
+  }
+
+  protected buildGUI(): void {
+    this.fileGUI.add(this.parameters, 'enabled').name('Activar Efecto').onChange((v: boolean) => {
+      this.pass.enabled = v;
+    });
+
+    this.fileGUI.add(this.parameters, 'glitchIntensity', 0.0, 1.0).name('Intensidad Glitch').onChange((v: number) => {
+      const mat = this.pass.material as THREE.RawShaderMaterial;
+      mat.uniforms.uGlitchIntensity.value = v;
+    });
+
+    this.fileGUI.add(this.parameters, 'scanlineIntensity', 0.0, 1.0).name('Intensidad Scanlines').onChange((v: number) => {
+      const mat = this.pass.material as THREE.RawShaderMaterial;
+      mat.uniforms.uScanlineIntensity.value = v;
+    });
+
+    this.fileGUI.add(this.parameters, 'colorSaturation', 0.0, 1.0).name('Saturación Color').onChange((v: number) => {
+      const mat = this.pass.material as THREE.RawShaderMaterial;
+      mat.uniforms.uColorSaturation.value = v;
     });
   }
 }
